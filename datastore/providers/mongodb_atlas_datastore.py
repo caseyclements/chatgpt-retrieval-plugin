@@ -25,7 +25,6 @@ MONGODB_COLLECTION = os.environ.get("MONGODB_COLLECTION", "default")
 MONGODB_INDEX = os.environ.get("MONGODB_INDEX", "default")
 OVERSAMPLING_FACTOR = 10
 MAX_CANDIDATES = 10_000
-UPSERT_BATCH_SIZE = 100
 
 
 class MongoDBAtlasDataStore(DataStore):
@@ -88,7 +87,7 @@ class MongoDBAtlasDataStore(DataStore):
                     self._convert_document_chunk_to_mongodb_document(chunk)
                 )
         # Upsert documents into the MongoDB collection
-        logger.info(f"{self.database_name}: {self.collection_name}")
+        logger.info(f"Upsert into: {self.database_name}: {self.collection_name}")
         await self.client[self.database_name][self.collection_name].insert_many(
             documents_to_upsert
         )
@@ -137,11 +136,11 @@ class MongoDBAtlasDataStore(DataStore):
             }
         ]
 
-        cursor = self.client[self.database_name][self.collection_name].aggregate(pipeline)
-        results = [
-            self._convert_mongodb_document_to_document_chunk_with_score(doc)
-            async for doc in cursor
-        ]
+        async with self.client[self.database_name][self.collection_name].aggregate(pipeline) as cursor:
+            results = [
+                self._convert_mongodb_document_to_document_chunk_with_score(doc)
+                async for doc in cursor
+            ]
 
         return QueryResult(
             query=query.query,
